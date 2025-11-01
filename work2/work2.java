@@ -59,11 +59,11 @@ class Yuru{
 
     void fly(int count){
         for(int i = count; i>0; i--){
-            if(energy>0){
+            if(energy>1){
                 System.out.println("どっひゃー!");
                 energy = energy -2;
             }else{
-                if(energy<=0){
+                if(energy<=1){
                     System.out.println("もう飛べないっすわ");
                     break;
                 }
