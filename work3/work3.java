@@ -3,9 +3,9 @@ public class work3 {
         System.out.println("Start");
         Book book = new Book();
 
-        BookUser user1 = new BookUser(book,"Alice");
-        BookUser user2 = new BookUser(book,"Bob");
-        BookUser user3 = new BookUser(book,"Charlie");
+        BookUser user1 = new BookUser(book,"Taro");
+        BookUser user2 = new BookUser(book,"Jiro");
+        BookUser user3 = new BookUser(book,"Saburo");
 
         Thread th1 = new Thread(user1);
         Thread th2 = new Thread(user2);
