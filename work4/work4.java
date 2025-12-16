@@ -1,19 +1,29 @@
 public class work4 {
     public static void main(String[] args){
 
-        Queue AtoProxy = new Queue(10);
-        Queue BtoProxy = new Queue(10);
-        Queue ProxyToBoth = new Queue(10);
+        // A,B → Proxy（共通の受信キュー）
+        Queue ToProxy = new Queue(10);
 
-        Proxy proxy = new Proxy(AtoProxy, BtoProxy, ProxyToBoth);
+        // Proxy → A
+        Queue ProxyToA = new Queue(10);
 
-        Asan A = new Asan(AtoProxy, ProxyToBoth);
-        Bsan B = new Bsan(BtoProxy, ProxyToBoth);
+        // Proxy → B
+        Queue ProxyToB = new Queue(10);
+
+        // Proxyオブジェクト
+        Proxy proxy = new Proxy(ToProxy, ProxyToA, ProxyToB);
+
+        // Aさんオブジェクト
+        Asan A = new Asan(ToProxy, ProxyToA);
+
+        // Bさんオブジェクト
+        Bsan B = new Bsan(ToProxy, ProxyToB);
 
         Thread thA = new Thread(A);
         Thread thB = new Thread(B);
         Thread thProxy = new Thread(proxy);
 
+        // スレッド開始
         thA.start();
         thB.start();
         thProxy.start();
@@ -29,8 +39,9 @@ class Queue {
         buf = new String[size];
     }
 
+    // メッセージの書き込み
     public synchronized void wrtMessage(String str) throws InterruptedException {
-        while (messagein >= buf.length) {
+        while (messagein >= buf.length) { // キューが満杯なら待機
             wait();
         }
         int end = (start + messagein) % buf.length;
@@ -39,8 +50,9 @@ class Queue {
         notifyAll();
     }
 
+    // メッセージの読み込み
     public synchronized String readMessage() throws InterruptedException {
-        while(messagein == 0) {
+        while(messagein == 0) { // キューが空なら待機
             wait();
         }
         String mes = buf[start];
@@ -51,27 +63,41 @@ class Queue {
     }
 }
 
+// Proxyクラス
 class Proxy implements Runnable {
 
-    Queue AtoProxy;
-    Queue BtoProxy;
-    Queue PtoBoth;
+    Queue recvQ;   // A,B → Proxy
+    Queue toA;     // Proxy → A
+    Queue toB;     // Proxy → B
 
-    Proxy(Queue a, Queue b, Queue p){
-        AtoProxy = a;
-        BtoProxy = b;
-        PtoBoth = p;
+    Proxy(Queue r, Queue a, Queue b){
+        recvQ = r;
+        toA = a;
+        toB = b;
     }
 
     public void run() {
         try {
-            String invite = AtoProxy.readMessage();
-            PtoBoth.wrtMessage("TO_B: INVITE");
-            PtoBoth.wrtMessage("TO_A: 100 Trying");
-            String ringing = BtoProxy.readMessage();
-            PtoBoth.wrtMessage("TO_A: 180 Ringing");
-            String ok = BtoProxy.readMessage();
-            PtoBoth.wrtMessage("TO_A: 200 OK");
+            // A → Proxy : INVITE
+            String invite = recvQ.readMessage();
+
+            // Proxy → B : INVITE
+            toB.wrtMessage("INVITE");
+
+            // Proxy → A : 100 Trying
+            toA.wrtMessage("100 Trying");
+
+            // B → Proxy : 180 Ringing
+            String ringing = recvQ.readMessage();
+
+            // Proxy → A : 180 Ringing
+            toA.wrtMessage("180 Ringing");
+
+            // B → Proxy : 200 OK
+            String ok = recvQ.readMessage();
+
+            // Proxy → A : 200 OK
+            toA.wrtMessage("200 OK");
 
         }catch(Exception e){
             System.err.println(e.getMessage());
@@ -79,9 +105,10 @@ class Proxy implements Runnable {
     }
 }
 
+// Aさんクラス
 class Asan implements Runnable {
-    Queue sendQ;
-    Queue recvQ;
+    Queue sendQ; // A → Proxy
+    Queue recvQ; // Proxy → A
 
     Asan(Queue s, Queue r){
         sendQ = s;
@@ -90,15 +117,15 @@ class Asan implements Runnable {
 
     public void run() {
         try {
+            // A → Proxy : INVITE
             sendQ.wrtMessage("INVITE");
 
             while(true){
+                // Proxy → A : メッセージ受信
                 String msg = recvQ.readMessage();
+                System.out.println("[A 受信] " + msg);
 
-                if(msg.startsWith("TO_A")){
-                    System.out.println("[A 受信] " + msg.substring(5));
-                    if(msg.contains("200 OK")) break;
-                }
+                if(msg.equals("200 OK")) break;
             }
 
         }catch(Exception e){
@@ -107,9 +134,10 @@ class Asan implements Runnable {
     }
 }
 
+// Bさんクラス
 class Bsan implements Runnable {
-    Queue sendQ;
-    Queue recvQ;
+    Queue sendQ; // B → Proxy
+    Queue recvQ; // Proxy → B
 
     Bsan(Queue s, Queue r){
         sendQ = s;
@@ -118,22 +146,18 @@ class Bsan implements Runnable {
 
     public void run() {
         try {
-            while(true){
-                String msg = recvQ.readMessage();
+            // Proxy → B : INVITE
+            String msg = recvQ.readMessage();
+            System.out.println("[B 受信] " + msg);
 
-                if(msg.startsWith("TO_B")){
-                    String body = msg.substring(5);
-                    System.out.println("[B 受信] " + body);
+            // B → Proxy : 180 Ringing
+            sendQ.wrtMessage("180 Ringing");
 
-                    sendQ.wrtMessage("180 Ringing");
+            Thread.sleep(800); // 保留時間
 
-                    Thread.sleep(800);
+            // B → Proxy : 200 OK
+            sendQ.wrtMessage("200 OK");
 
-                    sendQ.wrtMessage("200 OK");
-
-                    break;
-                }
-            }
         }catch(Exception e){
             System.err.println(e.getMessage());
         }
